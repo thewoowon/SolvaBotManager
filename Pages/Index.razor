@@ -1,0 +1,201 @@
+﻿@page "/"
+@attribute [Authorize]
+@using System.IO
+@using SolvaBot.Data
+@using SolvaBot.Models
+@using SolvaBot.Services
+@inject ParameterFinder finder
+@inject IAccountService accountService
+@inject NavigationManager navigationManager
+@inject IJSRuntime JsRuntime
+<div class="manager-main">
+	<div class="manager-main-category">
+        <div class="manager-main-type-name-wrap">
+			<div class="manager-main-type-name">카테고리</div>
+		</div>
+	    <table class="table table-striped">
+          <thead>
+            <tr>
+              <th scope="col">No</th>
+              <th scope="col">Title</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for(int i = 0; i < category.Length; i++)
+            {
+                var j = i;
+                <tr>
+                  <th scope="row">@(i+1)</th>
+                  <td><a @onclick="()=>UpdateMenuComponent(category[j])">@category[i].Title</a></td>
+                </tr>
+            }
+          </tbody>
+        </table>
+    </div>
+    <div class="manager-main-void"></div>
+    <div class="manager-main-menu">
+        <div class="manager-main-type-name-wrap">
+			<div class="manager-main-type-name">중간 메뉴</div>
+		</div>
+	    <table class="table  table-striped">
+          <thead>
+            <tr>
+              <th scope="col">No</th>
+              <th scope="col">Title</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for(int i = 0; i < menu.Length; i++)
+            {
+                var j = i;
+                <tr>
+                  <th scope="row">@(i+1)</th>
+                  <td><a @onclick="()=>UpdateDetailComponent(menu[j])">@menu[i].Title</a></td>
+                </tr>
+            }
+          </tbody>
+        </table>
+    </div>
+    <div class="manager-main-void"></div>
+
+    <div class="manager-main-detail">
+        <div class="manager-main-type-name-wrap">
+			<div class="manager-main-type-name">상세 내용</div>
+		</div>
+
+        @if(showDetailCard && detail != null && detail.Length > 0)
+        {
+        
+	        <div class="manager-main-detail-card">
+                <div class="manager-main-detail-card-wrap">
+					<div class="manager-main-detail-card-img">
+                        @if(imageFile != null && imageFile.Length > 0)
+                        {
+                            <img alt="상세 이미지" src="./AAAAA1/Images/@imageFile[0].Fn" width="400" height="250"/>
+                        }
+		            </div>
+                    <div class="manager-main-detail-card-title">
+					    @detail[0].Title
+				    </div>
+                    <div class="manager-main-detail-card-subtitle">
+					    @detail[0].SubTitle
+				    </div>
+                    <div class="manager-main-detail-card-content">
+					    @detail[0].Content
+				    </div>
+                    <div class="manager-main-detail-card-file">
+                        @if(docuFile != null && docuFile.Length >0)
+                        {
+                            <div>
+                                <label class="input-file-button" @onclick="DownloadDocuFileFromURL">
+                                    다운로드
+                                </label>
+                            </div>
+                            @docuFile[0].Fn
+                        }
+				    </div>
+				</div>
+	        </div>
+       
+        }
+        else if(!showDetailCard && detail != null && detail.Length > 0){
+        
+	            <table class="table  table-striped">
+                  <thead>
+                    <tr>
+                      <th scope="col">No</th>
+                      <th scope="col">Title</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for(int i = 0; i < detail.Length; i++)
+                    {
+                        <tr>
+                          <th scope="row">@(i+1)</th>
+                          <td>@detail[i].Title</td>
+                        </tr>
+                    }
+                  </tbody>
+                </table>
+        
+        }
+        else{
+            <div></div>
+        }
+    </div>
+</div>
+
+
+@code{
+    public string CompanyCode = String.Empty;
+    private TblComCategory[]? category;
+    private TblComMenu[]? menu;
+    private TblComMenuDetail[]? detail;
+    private TblComAddfiles[]? imageFile;
+    private TblComAddfiles[]? docuFile;
+    private bool showDetailCard =false;
+
+
+    protected override void OnInitialized()
+    {
+        CompanyCode = finder.GetCompanyCode();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        category = await finder.GetComCategories();
+        menu = await finder.GetComMenu();
+        detail = await finder.GetComMenuDetail();
+    }
+
+    private void NavigateToCategoryComponent()
+    {
+        navigationManager.NavigateTo("category");
+    }
+    private void NavigateToMenuComponent()
+    {
+        navigationManager.NavigateTo("menu");
+    }
+    private void NavigateToDetailComponent()
+    {
+        navigationManager.NavigateTo("detail");
+    }
+
+    private async void UpdateMenuComponent(TblComCategory category)
+    {
+        if (!showDetailCard)
+            showDetailCard = true;
+
+        detail = null;
+
+        await GetMenuComponent(category.Code);
+    }
+    private async void UpdateDetailComponent(TblComMenu menu)
+    {
+        if (!showDetailCard)
+            showDetailCard = true;
+
+        await GetDetailComponent(menu.Code);
+    }
+    protected async Task GetMenuComponent(string categoryCode)
+    {
+        menu = await finder.GetComMenu(categoryCode);
+    }
+    protected async Task GetDetailComponent(string menuCode)
+    {
+        detail = await finder.GetComMenuDetail(menuCode);
+        if(detail != null && detail.Length > 0)
+        {
+            imageFile = await finder.GetComMenuDetailImageFile(detail[0].Code);
+            docuFile = await finder.GetComMenuDetailDocuFile(detail[0].Code);
+        }
+    }
+    private async Task DownloadDocuFileFromURL()
+    {
+        var fileURL = string.Empty;
+        if(docuFile.Length > 0)
+            fileURL = "https://solvabotmanager.solva.co.kr/" + docuFile[0].CompanyCode + "/Docus/" + docuFile[0].Fn;
+        var fileName = docuFile[0].Fn;
+        await JsRuntime.InvokeVoidAsync("triggerFileDownload", fileName, fileURL);
+    }
+}

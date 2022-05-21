@@ -1,0 +1,84 @@
+﻿@using Microsoft.AspNetCore.Components.Web
+@namespace SolvaBot.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="~/" />
+    <link href="//netdna.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/site.css" rel="stylesheet" />
+    <link href="css/category.css" rel="stylesheet" />
+    <link href="css/menu.css" rel="stylesheet" />
+    <link href="css/detail.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <script type="text/javascript" defer>
+        function clearInput(inputId) {
+            setTimeout(function () {
+                var input = document.querySelector("#" + inputId);
+                if (input) {
+                    input.value = "";
+                }
+            }, 30);
+        }
+
+        function showDownload(id)
+        {
+            setTimeout(function () {
+                var label = document.querySelector("#" + id);
+                if (label) {
+                    label.classList.remove('detail-file-button-download');
+                }
+            }, 30);
+        }
+
+        function hideDownload(id)
+        {
+            setTimeout(function () {
+                var label = document.querySelector("#" + id);
+                if (label) {
+                    label.classList.add('detail-file-button-download');
+                }
+            }, 30);
+        }
+
+        async function downloadFileFromStream(fileName, contentStreamReference) {
+          const arrayBuffer = await contentStreamReference.arrayBuffer();
+          const blob = new Blob([arrayBuffer]);
+          const url = URL.createObjectURL(blob);
+
+          triggerFileDownload(fileName, url);
+
+          URL.revokeObjectURL(url);
+        }
+
+        function triggerFileDownload(fileName, url) {
+          const anchorElement = document.createElement('a');
+          anchorElement.href = url;
+          anchorElement.download = fileName ?? '';
+          anchorElement.click();
+          anchorElement.remove();
+        }
+    </script> 
+    <link href="SolvaBot.styles.css" rel="stylesheet" />
+    <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+</head>
+<body>
+    @RenderBody()
+
+    <div id="blazor-error-ui">
+        <environment include="Staging,Production">
+            An error has occurred. This application may no longer respond until reloaded.
+        </environment>
+        <environment include="Development">
+            An unhandled exception has occurred. See browser dev tools for details.
+        </environment>
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.server.js"></script>
+</body>
+</html>

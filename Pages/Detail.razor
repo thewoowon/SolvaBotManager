@@ -1,0 +1,495 @@
+﻿@page "/detail"
+@using Microsoft.Extensions.FileProviders
+@using SolvaBot.Services
+@using SolvaBot.Data
+@using SolvaBot.Models
+@using Microsoft.AspNetCore.WebUtilities;
+@using System.IO
+@using System
+@using System.Collections
+@attribute [Authorize]
+@inject IAccountService AccountService
+@inject IAlertService AlertService
+@inject ParameterFinder finder
+@inject NavigationManager navigationManager
+@inject IJSRuntime JsRuntime
+@inject IWebHostEnvironment env
+
+
+<div class="detail-main">
+	<div class="detail-main-left">
+	    <div class="detail-main-button">
+	        <div class="detail-main-button-wrap">
+                <div class="detail-main-button-margin">
+			        <button @onclick="AddRow" type="button" class="btn btn-primary">행추가</button> 
+		        </div>
+            </div>
+        </div>
+        <div class="detail-main-table">
+            <div class="detail-main-table-wrap">
+		        <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col">No</th>
+                            <th scope="col">Title</th>
+                            <th scope="col">Date</th>
+                            <th scope="col">Button</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @for(int i = 0; i < detail.Length; i++)
+                    {
+                        var j = i;
+                        <tr>
+                            <th scope="row">@(i+1)</th>
+                            <td>@detail[i].Title</td>
+                            <td>@detail[i].Wdate.ToString().Substring(0,10)</td>
+                            <td class="detail-main-table-td-button">
+                                <div class="detail-main-button-margin">
+			                        <button @onclick="()=>SendRow(j)" type="button" class="btn btn-primary">선택</button>
+		                        </div>
+						        <div class="detail-main-button-margin">
+			                        <button @onclick="()=>DeleteRow(detail[j])" type="button" class="btn btn-primary">삭제</button>
+		                        </div>
+					        </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+	        </div>	
+        </div>
+    </div>
+    <div  class="detail-main-right">
+	    <form class="detail-main-right-form" > 
+          <div class="mb-3" style="display:block;">
+              <div>
+                  <label for="formTitle" class="form-label">Thumbnail</label>
+              </div>
+              <div style="display:none;">
+                  <InputFile OnChange="OnInputImageFileChange" @ref="imageUploader" id="imageUploader"></InputFile>
+              </div>
+              <div class="detail-file-button-div">
+                  <div class="detail-file-button-upload">
+                    <label for="imageUploader" class="input-file-button">
+                        업로드
+                    </label>
+                  </div>
+                 <div class="detail-file-button-download" id="detailImage">
+                     <label class="input-file-button" @onclick="DownloadImageFileFromURL">
+                        다운로드
+                    </label>
+                 </div>
+              </div>
+          </div>
+          <div>
+              @foreach(var imageDataUrl in imageDataUrls)
+                {
+                    @if(imageDataUrl.Substring(0,4) == "data")
+                    {
+                        <img src="@imageDataUrl" width="400" height="250"/>
+                    }
+                    else
+                    {
+                        <img src="./AAAAA1/Images/@imageDataUrl" width="400" height="250"/>
+                    }
+
+                }
+            </div>
+          <div class="mb-3">
+            <label for="formNo" class="form-label">No</label>
+            <input type="text" class="form-control" id="formNo" readonly="readonly" value="@(nowIndex+1)">
+          </div>
+          <div class="mb-3">
+            <label for="formTitle" class="form-label">Title</label>
+            <input type="text" class="form-control" id="formTitle" value="@detailForm.Title" @oninput="(e) => {setTitleValue(e.Value.ToString());}">
+            <div class="form-text">여기에 제목을 입력하세요.</div>
+          </div>
+          <div class="mb-3">
+            <label for="formSubTitle" class="form-label">SubTitle</label>
+            <input type="text" class="form-control" id="formSubTitle" value="@detailForm.SubTitle" @oninput="(e) => {setSubTitleValue(e.Value.ToString());}">
+            <div class="form-text">여기에 부제목을 입력하세요.</div>
+          </div>
+          <div class="mb-3">
+            <label for="formTitle" class="form-label">Content</label>
+            <textarea class="form-control" id="formContent" value="@detailForm.Content" rows="15" @oninput="(e) => {setContentValue(e.Value.ToString());}"></textarea>
+            <div class="form-text">여기에 내용을 입력하세요.</div>
+          </div>
+          <div class="mb-3" style="display:block;">
+              <div>
+                  <label for="formTitle" class="form-label">Attachment</label>
+              </div>
+              <div style="display:none;">
+                  <InputFile OnChange="OnInputDocuFileChange" @ref="docuUploader" id="docuUploader"></InputFile>
+              </div>
+              <div class="detail-file-button-div">
+                  <div class="detail-file-button-upload">
+                    <label for="docuUploader" class="input-file-button">
+                        업로드
+                    </label>
+                  </div>
+                 <div class="detail-file-button-download" id="detailDocu">
+                     <label class="input-file-button" @onclick="DownloadDocuFileFromURL">
+                        다운로드
+                    </label>
+                 </div>
+              </div>
+              @if(docuFileShow)
+              {
+                  <div>
+                      @foreach(string file in docuDataUrls)
+                        {
+                           <div>
+                               @file
+                           </div>
+                        }
+                </div>
+              }
+          </div>
+          <div class="detail-main-form-button">
+			  <div class="detail-main-button-margin">
+                <button @onclick="ClearRow" type="button" class="btn btn-primary">Clear</button>
+              </div>
+              <div class="detail-main-button-margin">
+		        <button @onclick="EditRow" type="button" class="btn btn-primary">수정</button>
+	          </div>
+		  </div>
+        </form>
+    </div>
+</div>
+
+
+@code {
+    private TblComMenuDetail[] detail;
+    private TblComMenuDetail detailForm;
+    private int? nowIndex;
+    string titleValue = string.Empty;
+    string subTitleValue = string.Empty;
+    string contentValue = string.Empty;
+    string menuCode = string.Empty;
+    string Message = "No file(s) selected";
+    IReadOnlyList<IBrowserFile> selectedImageFile;
+    IReadOnlyList<IBrowserFile> selectedDocuFile;
+    IList<string> imageDataUrls = new List<string>();
+    IList<string> docuDataUrls = new List<string>();
+    public bool docuFileShow = false;
+    private InputFile imageUploader;
+    private InputFile docuUploader;
+    private string imageFileName = string.Empty;
+    private string docuFileName = string.Empty;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = navigationManager.ToAbsoluteUri(navigationManager.Uri);
+
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("menuCode", out var _queryCompanyCode))
+        {
+            menuCode = _queryCompanyCode;
+            detail = await finder.GetComMenuDetail(menuCode);
+        }
+        else
+        {
+            menuCode = string.Empty; // 오류 페이지 라우팅
+            detail = await finder.GetComMenuDetail();
+        }
+        detailForm = new TblComMenuDetail();
+    }
+
+    private Stream GetFileStream()
+    {
+        var randomBinaryData = new byte[50 * 1024];
+        var fileStream = new MemoryStream(randomBinaryData);
+
+        return fileStream;
+    }
+
+    private async Task DownloadImageFileFromStream()
+    {
+        var fileStream = GetFileStream();
+        var fileName = imageFileName;
+
+        using var streamRef = new DotNetStreamReference(stream: fileStream);
+
+        await JsRuntime.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+    }
+
+    private async Task DownloadDocuFileFromStream()
+    {
+        var fileStream = GetFileStream();
+        var fileName = docuFileName;
+
+        using var streamRef = new DotNetStreamReference(stream: fileStream);
+
+        await JsRuntime.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+    }
+
+    private async Task DownloadImageFileFromURL()
+    {
+        var fileURL = string.Empty;
+        if(!string.IsNullOrEmpty(imageFileName))
+            fileURL = "https://solvabotmanager.solva.co.kr/" + detailForm.CompanyCode + "/Images/" + imageFileName;
+        var fileName = imageFileName;
+        await JsRuntime.InvokeVoidAsync("triggerFileDownload", fileName, fileURL);
+    }
+
+    private async Task DownloadDocuFileFromURL()
+    {
+        var fileURL = string.Empty;
+        if(!string.IsNullOrEmpty(docuFileName))
+            fileURL = "https://solvabotmanager.solva.co.kr/" + detailForm.CompanyCode + "/Docus/" + docuFileName;
+        var fileName = docuFileName;
+        await JsRuntime.InvokeVoidAsync("triggerFileDownload", fileName, fileURL);
+    }
+    protected async void SendRow(int i){
+        // 단순히 파일의 경로로 인식할 수 있게
+        // imageDataUrls에 단순히 경로를 입력해 준다.
+        // 파일명을 입력해 준다.
+        await JsRuntime.InvokeVoidAsync("hideDownload", "detailImage");
+        await JsRuntime.InvokeVoidAsync("hideDownload", "detailDocu");
+        await JsRuntime.InvokeVoidAsync("clearInput", "docuUploader");
+        await JsRuntime.InvokeVoidAsync("clearInput", "imageUploader");
+        docuFileShow = true;
+        imageDataUrls.Clear();
+        docuDataUrls.Clear();
+        nowIndex = i;
+        detailForm = detail[i];
+        titleValue = detail[i].Title;
+        subTitleValue = detail[i].SubTitle;
+        contentValue = detail[i].Content;
+        List<IFileInfo> imageList = finder.ImageFileSetting(detail[i].Code,env);
+        List<IFileInfo> docuList = finder.DocuFilesSetting(detail[i].Code,env);
+        if (imageList.Count > 0)
+        {
+            imageDataUrls.Add(imageList[0].Name);
+            imageFileName = imageList[0].Name;
+            await JsRuntime.InvokeVoidAsync("showDownload", "detailImage");
+        }
+        if (docuList.Count > 0)
+        {
+            docuDataUrls.Add(docuList[0].Name);
+            docuFileName = docuList[0].Name;
+            await JsRuntime.InvokeVoidAsync("showDownload", "detailDocu");
+        }
+        StateHasChanged();
+        //await OnInputImageFileChange(imageList);
+        //OnInputDocuFileChange(docuList);
+
+    }
+
+    protected async void AddRow(){
+        if(!string.IsNullOrEmpty(menuCode))
+        {
+            finder.AddComDetail(menuCode);
+            await OnInitializedAsync();
+        }
+        else{
+            await JsRuntime.InvokeVoidAsync("alert", "메뉴에서 넘어온 것이 아니라면 행을 추가 할 수 없습니다.");
+        }
+    }
+    protected async void DeleteRow(TblComMenuDetail paramDetail){
+        finder.DeleteComDetail(paramDetail);
+        await OnInitializedAsync();
+    }
+    protected async void EditRow(){
+        AlertService.Clear();
+        await JsRuntime.InvokeVoidAsync("clearInput", "docuUploader");
+        await JsRuntime.InvokeVoidAsync("clearInput", "imageUploader");
+        if(string.IsNullOrEmpty(detailForm.Code))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "메뉴가 선택되지 않았습니다.");
+        }
+        else
+        {
+            TblComMenuDetail paramDetail = new TblComMenuDetail();
+            TblComAddfiles paramImage = new TblComAddfiles();
+            TblComAddfiles paramDocu = new TblComAddfiles();
+            paramDetail.Code = detailForm.Code;   
+            paramDetail.Title = titleValue;
+            paramDetail.SubTitle = subTitleValue;
+            paramDetail.Content = contentValue;
+            paramDetail.Wdate = detailForm.Wdate;   
+            paramDetail.CompanyCode = detailForm.CompanyCode;   
+            paramDetail.MenuCode = menuCode;
+
+
+            try
+            {
+                if(selectedImageFile != null)
+                {
+                    foreach (var file in selectedImageFile)
+                    {
+                        var format = "image/png";
+                        var resizedImageFile = await file.RequestImageFileAsync(format, 400, 250);
+                        Stream stream = resizedImageFile.OpenReadStream();
+                        string fileNameWithoutExtension = "DIMG" + DateTime.Now.ToString("yyyyMMddhhmmssffff") + ".png";
+
+                        var path = $"{env.WebRootPath}\\{detailForm.CompanyCode}\\" + "Images" + $"\\{fileNameWithoutExtension}";
+                        FileStream fs = File.Create(path);
+                        await stream.CopyToAsync(fs);
+
+                        paramImage.Code = "MNOP" + DateTime.Now.ToString("yyyyMMddhhmmssffff");
+                        paramImage.Pcode = detailForm.Code;
+                        paramImage.CompanyCode = detailForm.CompanyCode;
+                        paramImage.Fext = resizedImageFile.ContentType;
+                        paramImage.Floc = path;
+                        paramImage.Fn = fileNameWithoutExtension;
+                        paramImage.Fsize = resizedImageFile.Size;
+                        paramImage.Role = 1; // image -> 1
+                        paramImage.Wdate = DateTime.Now;
+
+                        stream.Close();
+                        fs.Close();
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                AlertService.Error("파일 사이즈가 너무 큽니다. 파일 사이즈를 조정하세요.");
+                StateHasChanged();
+                return;
+            }
+            try
+            {
+                if(selectedDocuFile != null)
+                {
+                    foreach (var file in selectedDocuFile)
+                    {
+                        Stream stream = file.OpenReadStream();
+                        string[] splitName = file.Name.Split('.');
+                        string extension = splitName[splitName.Length - 1];
+                        string fileNameWithoutExtension = "DDOC" + DateTime.Now.ToString("yyyyMMddhhmmssffff") + "." + extension;
+                        var path = $"{env.WebRootPath}\\{detailForm.CompanyCode}\\"+ "Docus" + $"\\{fileNameWithoutExtension}";
+                        FileStream fs = File.Create(path);
+                        await stream.CopyToAsync(fs);
+
+                        paramDocu.Code = "MNOP" + DateTime.Now.ToString("yyyyMMddhhmmssffff");
+                        paramDocu.Pcode = detailForm.Code;
+                        paramDocu.CompanyCode = detailForm.CompanyCode;
+                        paramDocu.Fext = file.ContentType;
+                        paramDocu.Floc = path;
+                        paramDocu.Fn = fileNameWithoutExtension;
+                        paramDocu.Fsize = file.Size;
+                        paramDocu.Role = 2; // docus -> 2
+                        paramDocu.Wdate = DateTime.Now;
+
+                        stream.Close();
+                        fs.Close();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AlertService.Error("파일 사이즈가 너무 큽니다. 파일 사이즈를 조정하세요.");
+                StateHasChanged();
+                return;
+            }
+
+            finder.UpdateComDetail(detailForm,paramDetail);
+            await finder.UpdateComDetailFiles(paramImage, paramDocu,detailForm.Code);
+            AlertService.Error("수정이 완료되었습니다.");
+            StateHasChanged();
+            await OnInitializedAsync();
+        }
+    }
+
+    protected void ClearRow(){
+        detailForm = new TblComMenuDetail();
+        nowIndex = null;
+        titleValue = string.Empty;
+        subTitleValue = string.Empty;
+        contentValue = string.Empty;
+    }
+
+    private void setTitleValue(string value)
+    {
+        titleValue = value;
+    }
+    private void setSubTitleValue(string value)
+    {
+        subTitleValue = value;
+    }
+    private void setContentValue(string value)
+    {
+        contentValue = value;
+    }
+
+    private async Task OnInputImageFileChange(InputFileChangeEventArgs e)
+    {
+        imageDataUrls.Clear();
+
+        var imageFiles = e.GetMultipleFiles(1);
+        var format = "image/png";
+        foreach(var imageFile in imageFiles)
+        {
+            var resizedImageFile = await imageFile.RequestImageFileAsync(format, 400, 250);
+            var buffer = new byte[resizedImageFile.Size];
+            await resizedImageFile.OpenReadStream().ReadAsync(buffer);
+
+            var imageDataUrl = $"data:{format};base64,{Convert.ToBase64String(buffer)}";
+            imageDataUrls.Add(imageDataUrl);
+        }
+
+        selectedImageFile = e.GetMultipleFiles();
+
+        this.StateHasChanged();
+    }
+
+    private async Task OnInputImageFileChange(List<IFileInfo> list)
+    {
+        imageDataUrls.Clear();
+        var format = "image/png";
+        foreach(var imageFile in list)
+        {
+            var transFile = (IBrowserFile)imageFile;
+            selectedImageFile.Append(transFile);
+            var resizedImageFile = await transFile.RequestImageFileAsync(format, 400, 250);
+            var buffer = new byte[resizedImageFile.Size];
+            await resizedImageFile.OpenReadStream().ReadAsync(buffer);
+
+            var imageDataUrl = $"data:{format};base64,{Convert.ToBase64String(buffer)}";
+            imageDataUrls.Add(imageDataUrl);
+
+        }
+
+        this.StateHasChanged();
+    }
+
+    private void OnInputDocuFileChange(InputFileChangeEventArgs e)
+    {
+        docuFileShow = true;
+        selectedDocuFile = e.GetMultipleFiles();
+
+        if(selectedDocuFile != null && selectedDocuFile.Count > 0)
+        {
+            docuDataUrls.Add(selectedDocuFile[0].Name);
+        }
+        this.StateHasChanged();
+    }
+
+    private void OnInputDocuFileChange(List<IFileInfo> list)
+    {
+        foreach (var docuFile in list)
+        {
+            var transFile = (IBrowserFile)docuFile;
+            selectedDocuFile.Append(transFile);
+        }
+        
+        this.StateHasChanged();
+    }
+
+    private async void OnSubmit()
+    {
+        foreach (var file in selectedImageFile)
+        {
+            Stream stream = file.OpenReadStream();
+            var path = $"{env.WebRootPath}\\{file.Name}";
+            FileStream fs = File.Create(path);
+            await stream.CopyToAsync(fs);
+            stream.Close();
+            fs.Close();
+        }
+        
+        this.StateHasChanged();
+    }
+}

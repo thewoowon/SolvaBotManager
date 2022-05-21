@@ -1,0 +1,142 @@
+﻿@page "/category"
+
+@using SolvaBot.Services
+@using SolvaBot.Data
+@using SolvaBot.Models
+@attribute [Authorize]
+@inject IAccountService AccountService
+@inject ParameterFinder finder
+@inject NavigationManager navigationManager
+@inject IJSRuntime JsRuntime
+
+<div class="category-main">
+	<div class="category-main-left">
+	    <div class="category-main-button">
+	        <div class="category-main-button-wrap">
+                <div class="category-main-button-margin">
+			        <button @onclick="AddRow" type="button" class="btn btn-primary">행추가</button> 
+		        </div>
+            </div>
+        </div>
+        <div class="category-main-table">
+            <div class="category-main-table-wrap">
+		        <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col">No</th>
+                            <th scope="col">Title</th>
+                            <th scope="col">Date</th>
+                            <th scope="col">Button</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @for(int i = 0; i < category.Length; i++)
+                    {
+                        var j = i;
+                        <tr>
+                            <th scope="row">@(i+1)</th>
+                            <td>@category[i].Title</td>
+                            <td>@category[i].Wdate.ToString().Substring(0,10)</td>
+                            <td class="category-main-table-td-button">
+                                <div class="category-main-button-margin">
+			                        <button @onclick="()=>SendRow(j)" type="button" class="btn btn-primary">선택</button>
+		                        </div>
+						        <div class="category-main-button-margin">
+			                        <button @onclick="()=>DeleteRow(category[j])" type="button" class="btn btn-primary">삭제</button>
+		                        </div>
+                                <div class="category-main-button-margin">
+			                        <button @onclick="()=>NavigateToMenuList(category[j].Code)" type="button" class="btn btn-primary">하위목록</button>
+		                        </div>
+					        </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+	        </div>	
+        </div>
+    </div>
+    <div  class="category-main-right">
+	    <form class="category-main-right-form"> 
+          <div class="mb-3">
+            <label for="formNo" class="form-label">No</label>
+            <input type="text" class="form-control" id="formNo" readonly="readonly" value="@(nowIndex+1)">
+          </div>
+          <div class="mb-3">
+            <label for="formTitle" class="form-label">Title</label>
+            <input type="text" class="form-control" id="formTitle" value="@categoryForm.Title" @oninput="(e) => {setValue(e.Value.ToString());}">
+            <div class="form-text">여기에 카테고리 제목을 입력하세요.</div>
+          </div>
+          <div class="category-main-form-button">
+			  <div class="category-main-button-margin">
+                <button @onclick="ClearRow" type="button" class="btn btn-primary">Clear</button>
+              </div>
+              <div class="category-main-button-margin">
+		        <button @onclick="EditRow" type="button" class="btn btn-primary">수정</button>
+	          </div>
+		  </div>
+        </form>
+    </div>
+</div>
+
+
+
+
+@code {
+	private TblComCategory[] category;
+    private TblComCategory categoryForm;
+    private int? nowIndex;
+    string titleValue = string.Empty;
+
+    protected override async Task OnInitializedAsync(){
+        category = await finder.GetComCategories();
+        categoryForm = new TblComCategory();
+    }
+    protected void SendRow(int i){
+        nowIndex = i;
+        categoryForm = category[i];
+        titleValue = category[i].Title;
+    }
+
+    protected async void AddRow(){
+        finder.AddComCategories();
+        await OnInitializedAsync();
+    }
+    protected async void DeleteRow(TblComCategory paramCategory){
+        finder.DeleteComCategories(paramCategory);
+        await OnInitializedAsync();
+    }
+    protected async void EditRow(){
+
+        if(string.IsNullOrEmpty(categoryForm.Code))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "카테고리가 선택되지 않았습니다.");
+        }
+        else
+        {
+            TblComCategory paramCategory = new TblComCategory();
+            paramCategory.Code = categoryForm.Code;   
+            paramCategory.Title = titleValue;   
+            paramCategory.Wdate = categoryForm.Wdate;   
+            paramCategory.CompanyCode = categoryForm.CompanyCode;   
+
+            finder.UpdateComCategories(categoryForm,paramCategory);
+            await OnInitializedAsync();
+        }
+    }
+
+    protected void ClearRow(){
+        categoryForm = new TblComCategory();
+        nowIndex = null;
+        titleValue = string.Empty;
+    }
+
+     private void setValue(string value)
+    {
+        titleValue = value;
+    }
+
+    private void NavigateToMenuList(string categoryCode)
+    {
+        navigationManager.NavigateTo("menu?categoryCode=" + categoryCode);
+    }
+}

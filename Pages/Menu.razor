@@ -1,0 +1,163 @@
+﻿@page "/menu"
+@using SolvaBot.Services
+@using SolvaBot.Data
+@using SolvaBot.Models
+@using Microsoft.AspNetCore.WebUtilities;
+@attribute [Authorize]
+@inject IAccountService AccountService
+@inject ParameterFinder finder
+@inject NavigationManager navigationManager
+@inject IJSRuntime JsRuntime
+
+
+<div class="menu-main">
+	<div class="menu-main-left">
+	    <div class="menu-main-button">
+	        <div class="menu-main-button-wrap">
+                <div class="menu-main-button-margin">
+			        <button @onclick="AddRow" type="button" class="btn btn-primary">행추가</button> 
+		        </div>
+            </div>
+        </div>
+        <div class="menu-main-table">
+            <div class="menu-main-table-wrap">
+		        <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col">No</th>
+                            <th scope="col">Title</th>
+                            <th scope="col">Date</th>
+                            <th scope="col">Button</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @for(int i = 0; i < menu.Length; i++)
+                    {
+                        var j = i;
+                        <tr>
+                            <th scope="row">@(i+1)</th>
+                            <td>@menu[i].Title</td>
+                            <td>@menu[i].Wdate.ToString().Substring(0,10)</td>
+                            <td class="menu-main-table-td-button">
+                                <div class="menu-main-button-margin">
+			                        <button @onclick="()=>SendRow(j)" type="button" class="btn btn-primary">선택</button>
+		                        </div>
+						        <div class="menu-main-button-margin">
+			                        <button @onclick="()=>DeleteRow(menu[j])" type="button" class="btn btn-primary">삭제</button>
+		                        </div>
+                                <div class="menu-main-button-margin">
+			                        <button @onclick="()=>NavigateToDetailList(menu[j].Code)" type="button" class="btn btn-primary">하위목록</button>
+		                        </div>
+					        </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+	        </div>	
+        </div>
+    </div>
+    <div  class="menu-main-right">
+	    <form class="menu-main-right-form"> 
+          <div class="mb-3">
+            <label for="formNo" class="form-label">No</label>
+            <input type="text" class="form-control" id="formNo" readonly="readonly" value="@(nowIndex+1)">
+          </div>
+          <div class="mb-3">
+            <label for="formTitle" class="form-label">Title</label>
+            <input type="text" class="form-control" id="formTitle" value="@menuForm.Title" @oninput="(e) => {setValue(e.Value.ToString());}">
+            <div class="form-text">여기에 메뉴 제목을 입력하세요.</div>
+          </div>
+          <div class="menu-main-form-button">
+			  <div class="menu-main-button-margin">
+                <button @onclick="ClearRow" type="button" class="btn btn-primary">Clear</button>
+              </div>
+              <div class="menu-main-button-margin">
+		        <button @onclick="EditRow" type="button" class="btn btn-primary">수정</button>
+	          </div>
+		  </div>
+        </form>
+    </div>
+</div>
+
+
+
+@code {
+	private TblComMenu[] menu;
+    private TblComMenu menuForm;
+    private int? nowIndex;
+    string titleValue = string.Empty;
+    string categoryCode = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = navigationManager.ToAbsoluteUri(navigationManager.Uri);
+
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("categoryCode", out var _queryCompanyCode))
+        {
+            categoryCode = _queryCompanyCode;
+            menu = await finder.GetComMenu(categoryCode);
+        }
+        else
+        {
+            categoryCode = string.Empty; // 오류 페이지 라우팅
+            menu = await finder.GetComMenu();
+        }
+        menuForm = new TblComMenu();
+    }
+
+    protected void SendRow(int i){
+        nowIndex = i;
+        menuForm = menu[i];
+        titleValue = menu[i].Title;
+    }
+
+    protected async void AddRow(){
+        if(!string.IsNullOrEmpty(categoryCode))
+        {
+            finder.AddComMenu(categoryCode);
+            await OnInitializedAsync();
+        }
+        else{
+            await JsRuntime.InvokeVoidAsync("alert", "카테고리에서 넘어온 것이 아니라면 행을 추가 할 수 없습니다.");
+        }
+    }
+    protected async void DeleteRow(TblComMenu paramMenu){
+        finder.DeleteComMenu(paramMenu);
+        await OnInitializedAsync();
+    }
+    protected async void EditRow(){
+
+        if(string.IsNullOrEmpty(menuForm.Code))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "메뉴가 선택되지 않았습니다.");
+        }
+        else
+        {
+            TblComMenu paramMenu = new TblComMenu();
+            paramMenu.Code = menuForm.Code;   
+            paramMenu.Title = titleValue;   
+            paramMenu.Wdate = menuForm.Wdate;   
+            paramMenu.CompanyCode = menuForm.CompanyCode;   
+            paramMenu.CategoryCode = categoryCode;
+
+            finder.UpdateComMenu(menuForm,paramMenu);
+            await OnInitializedAsync();
+        }
+    }
+
+    protected void ClearRow(){
+        menuForm = new TblComMenu();
+        nowIndex = null;
+        titleValue = string.Empty;
+    }
+
+     private void setValue(string value)
+    {
+        titleValue = value;
+    }
+
+    private void NavigateToDetailList(string menuCode)
+    {
+        navigationManager.NavigateTo("detail?menuCode=" + menuCode);
+    }
+}

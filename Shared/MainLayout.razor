@@ -1,0 +1,97 @@
+﻿
+@using SolvaBot.Data
+@using SolvaBot.Services
+@using SolvaBot.Helpers
+@inherits LayoutComponentBase
+@inject ParameterFinder finder
+@inject NavigationManager navigationManager
+@inject IAccountService accountService
+
+
+@if(LoggedIn)
+{
+    <PageTitle>SolvaBot</PageTitle>
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu  LoggedIn="true"/>
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <div class="top-row-right">
+                <h5>@finder.GetCompanyName() 담당자님 반갑습니다. 솔바봇의 메뉴를 설정하세요.</h5>
+            </div>
+            <div class="top-row-left">
+                <button class="btn btn-primary" type="button" @onclick="NavigateToLogoutComponent">Logout</button>
+            </div>
+        </div>
+
+        <article class="content px-4">
+            <Alert />
+            @Body
+        </article>
+    </main>
+</div>
+
+}
+else
+{
+    <PageTitle>SolvaBot</PageTitle>
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu LoggedIn="false"/>
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <div class="top-row-right">
+                <h5>@finder.GetCompanyName() 담당자님 반갑습니다. 로그인이 필요합니다.</h5>
+            </div>
+            <div class="top-row-left">
+                <button class="btn btn-primary" type="button" @onclick="NavigateToSignInComponent">Sign in</button>
+            </div>
+        </div>
+
+        <article class="content px-4">
+            <Alert />
+            @Body
+        </article>
+    </main>
+</div>
+
+}
+
+
+@code{
+    string CompanyCode = string.Empty;
+    public bool LoggedIn
+    {
+        get { return accountService.User != null; }
+    }
+
+    protected override void OnInitialized()
+    {
+        CompanyCode = finder.SetCompanyCode(navigationManager);
+
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await accountService.Initialize();
+        }
+    }
+
+    private void NavigateToSignInComponent()
+    {
+        navigationManager.NavigateTo("account/login");
+    }
+    private void NavigateToLogoutComponent()
+    {
+        navigationManager.NavigateTo("account/logout");
+    }
+}
+
