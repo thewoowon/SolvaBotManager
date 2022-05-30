@@ -33,13 +33,13 @@ main {
     }
 
 
-.top-row-right{
+.top-row-left{
     width:70%;
     display:flex;
     justify-content:flex-start;
     align-items:center;
 }
-.top-row-left {
+.top-row-right {
     width: 30%;
     display: flex;
     justify-content: flex-end;
